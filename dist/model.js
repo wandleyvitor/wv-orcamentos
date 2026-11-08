@@ -1,0 +1,12 @@
+(function(root){
+  const stages=['Novo','Orçado','Aprovado','Em execução','Concluído','Perdido'];
+  const closed=r=>['Concluído','Perdido'].includes(r.status);
+  const today=()=>{const d=new Date();return [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-')};
+  function cents(v){const s=String(v).trim().replace(',','.');if(!/^\d{1,7}(\.\d{1,2})?$/.test(s))throw Error('Use um valor entre 0 e 9.999.999,99, com até duas casas decimais.');const [a,b='']=s.split('.');return Number(a)*100+Number(b.padEnd(2,'0'))}
+  const total=r=>r.items.reduce((n,i)=>n+i.qty*i.cents,0);
+  function text(v,max,required=false){if(typeof v!=='string'||v.length>max||(required&&!v.trim()))throw Error('Confira os campos obrigatórios e os limites de texto.');return v.trim()}
+  function date(v){if(v==='')return '';if(typeof v!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(v)||v<'2000-01-01'||v>'2100-12-31')throw Error('Informe uma data válida entre 2000 e 2100.');const d=new Date(v+'T12:00:00Z');if(!Number.isFinite(d.getTime())||d.toISOString().slice(0,10)!==v)throw Error('Data inválida.');return v}
+  function record(r){if(!r||typeof r!=='object')throw Error('Atendimento inválido.');const o={id:text(r.id,80,true),client:text(r.client,100,true),contact:text(r.contact,140),service:text(r.service,160,true),status:r.status,followup:date(r.followup),validity:date(r.validity),owner:text(r.owner,80),notes:text(r.notes,2000),created:date(r.created)};if(!stages.includes(o.status))throw Error('Etapa inválida.');if(!Array.isArray(r.items)||r.items.length<1||r.items.length>30)throw Error('Inclua entre 1 e 30 itens.');o.items=r.items.map(i=>{if(!i||!Number.isSafeInteger(i.qty)||i.qty<1||i.qty>1000||!Number.isSafeInteger(i.cents)||i.cents<0||i.cents>999999999)throw Error('Confira quantidade (1 a 1000) e valor de cada item.');return {description:text(i.description,140,true),qty:i.qty,cents:i.cents}});return o}
+  function backup(data){if(!data||data.schema!==1||!Array.isArray(data.records)||data.records.length>1000)throw Error('Backup incompatível. Use um arquivo exportado pelo WV Orçamentos.');const list=data.records.map(record);if(new Set(list.map(r=>r.id)).size!==list.length)throw Error('O backup contém identificadores repetidos.');return list}
+  const api={stages,closed,today,cents,total,record,backup};if(typeof module==='object')module.exports=api;else root.WV=api;
+})(typeof globalThis!=='undefined'?globalThis:this);
